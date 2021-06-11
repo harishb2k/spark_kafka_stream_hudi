@@ -4,10 +4,9 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.streaming.DataStreamReader;
-import org.apache.spark.sql.streaming.StreamingQueryException;
 
 public class KafkaToCsv {
-    public static void main(String[] args) throws StreamingQueryException {
+    public static void main(String[] args) throws Exception {
 
         SparkSession sparkSession = SparkSession.builder()
                 .master("local[*]")
@@ -18,7 +17,7 @@ public class KafkaToCsv {
                 .readStream()
                 .format("kafka")
                 .option("kafka.bootstrap.servers", "localhost:9092")
-                .option("subscribe", "topic_payment_success")
+                .option("subscribe", "topic_payment_success_1")
                 .option("startingOffsets", "latest")
                 .option("failOnDataLoss", false);
 
@@ -44,7 +43,7 @@ public class KafkaToCsv {
         df.writeStream().format("com.databricks.spark.csv")
                 .foreachBatch((v1, v2) -> {
                     v1.write().format("com.databricks.spark.csv")
-                            .save("./data/" + v2.toString() + "_mydata.csv");
+                            .save("./data/" + v2.toString() + "_" + System.currentTimeMillis() + "_mydata.csv");
                 })
                 .start().awaitTermination();
     }

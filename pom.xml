@@ -12,31 +12,30 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <scala.version>2.11.12</scala.version>
-        <scala.compat.version>2.11</scala.compat.version>
-        <spark.version>2.4.7</spark.version>
+        <scala.compat.version>2.12</scala.compat.version>
+        <scala.version>2.12.10</scala.version>
+        <spark.version>3.1.2</spark.version>
+        <spark.kafka.version>3.1.2</spark.kafka.version>
+        <jasckson.version>2.12.0</jasckson.version>
+        <slf4j.version>1.7.30</slf4j.version>
+        <hudi.version>0.8.0</hudi.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.databricks</groupId>
-            <artifactId>spark-csv_${scala.compat.version}</artifactId>
-            <version>1.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.compat.version}</artifactId>
-        </dependency>
+
+        <!-- This is not part of spark - so we need to install it-->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming-kafka-0-10_${scala.compat.version}</artifactId>
+            <version>${spark.kafka.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql-kafka-0-10_${scala.compat.version}</artifactId>
-            <version>${spark.version}</version>
+            <version>${spark.kafka.version}</version>
         </dependency>
 
+        <!-- All needed for Hudi-->
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-spark-bundle_${scala.compat.version}</artifactId>
@@ -50,6 +49,15 @@
             <artifactId>avro</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-spark_${scala.compat.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-utilities-bundle_${scala.compat.version}</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
@@ -58,6 +66,49 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-reflect</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jasckson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jasckson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jasckson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-scala_${scala.compat.version}</artifactId>
+                <version>${scala.compat.version}.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-common</artifactId>
+                <version>3.2.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-auth</artifactId>
+                <version>3.2.0</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.spark</groupId>
                 <artifactId>spark-parent_${scala.compat.version}</artifactId>
@@ -67,7 +118,7 @@
             <dependency>
                 <groupId>org.apache.spark</groupId>
                 <artifactId>spark-streaming-kafka-0-10_${scala.compat.version}</artifactId>
-                <version>${spark.version}</version>
+                <version>${spark.kafka.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.spark</groupId>
@@ -85,7 +136,26 @@
                 <version>${spark.version}</version>
             </dependency>
 
-
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-spark_${scala.compat.version}</artifactId>
+                <version>${hudi.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.module</groupId>
+                        <artifactId>jackson-module-scala_2.11</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.module</groupId>
+                        <artifactId>jackson-module-scala_2.12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-utilities-bundle_${scala.compat.version}</artifactId>
+                <version>${hudi.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-spark-bundle_${scala.compat.version}</artifactId>
@@ -107,6 +177,7 @@
                 <version>4.11</version>
                 <scope>test</scope>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -114,6 +185,15 @@
         <profile>
             <id>idea</id>
             <dependencies>
+                <dependency>
+                    <groupId>com.fasterxml.jackson.module</groupId>
+                    <artifactId>jackson-module-scala_${scala.compat.version}</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                    <version>${slf4j.version}</version>
+                </dependency>
                 <dependency>
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-core_${scala.compat.version}</artifactId>
@@ -137,7 +217,7 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <dependencies>
-                <!--<dependency>
+                <dependency>
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-core_${scala.compat.version}</artifactId>
                     <scope>provided</scope>
@@ -151,7 +231,7 @@
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-streaming_${scala.compat.version}</artifactId>
                     <scope>provided</scope>
-                </dependency>-->
+                </dependency>
             </dependencies>
         </profile>
     </profiles>

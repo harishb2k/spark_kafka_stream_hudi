@@ -1,128 +1,69 @@
 package io.github.devlibx.spark.hudi.kafka.store;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.spark.SparkConf;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.streaming.DataStreamReader;
-import org.apache.spark.sql.streaming.StreamingQueryException;
-import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaInputDStream;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka010.ConsumerStrategies;
-import org.apache.spark.streaming.kafka010.KafkaUtils;
-import org.apache.spark.streaming.kafka010.LocationStrategies;
-import scala.Tuple2;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.hudi.client.SparkRDDWriteClient;
+import org.apache.hudi.client.common.HoodieSparkEngineContext;
+import org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer;
 
 public class Main {
-    public static void main(String[] args) throws InterruptedException, StreamingQueryException {
-
-        // https://programming.vip/docs/actual-write-to-hudi-using-spark-streaming.html
-        SparkSession sparkSession = SparkSession.builder()
-                .master("local[*]")
-                .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-                .getOrCreate();
-      /*  sparkSession.read().format("kafka")
-                .option("kafka.bootstrap.servers", "localhost:9092")
-                .option("subscribe", "topic_payment_success")
-                // .option("startingOffsets", "latest")
-                .option("maxOffsetsPerTrigger", 100000)
-                .option("failOnDataLoss", false)
-                .load()
-                .write()
-                .format("com.databricks.spark.csv")
-                .save("mydata.csv");*/
+    public static void main(String[] args) throws Exception {
+         // HoodieDeltaStreamer.main(new String[]{"--help"});
+         if (true) {
+             // return;
+         }
 
 
-        // Define kafka flow
-        DataStreamReader dataStreamReader = sparkSession
-                .readStream()
-                .format("kafka")
-                .option("kafka.bootstrap.servers", "localhost:9092")
-                .option("subscribe", "topic_payment_success")
-                .option("startingOffsets", "latest")
-                // .option("maxOffsetsPerTrigger", 100000)
-                .option("failOnDataLoss", false);
-
-        // Loading stream data, because it is only for testing purposes, reading kafka messages directly without any other processing, is that spark structured streams automatically generate kafka metadata for each set of messages, such as the subject of the message, partition, offset, and so on.
-        Dataset<Row> df = dataStreamReader.load()
-                .selectExpr(
-                        "topic as kafka_topic",
-                        "CAST(partition AS STRING) kafka_partition",
-                        "CAST(timestamp as String) kafka_timestamp",
-                        "CAST(offset AS STRING) kafka_offset",
-                        "CAST(key AS STRING) kafka_key",
-                        "CAST(value AS STRING) kafka_value",
-                        "current_timestamp() current_time"
-                ).selectExpr(
-                        "kafka_topic",
-                        "concat(kafka_partition,'-',kafka_offset) kafka_partition_offset",
-                        "kafka_offset",
-                        "kafka_timestamp",
-                        "kafka_key",
-                        "kafka_value",
-                        "substr(current_time,1,10) partition_date"
-                );
-
-        df.writeStream().format("com.databricks.spark.csv")
-                .foreachBatch((v1, v2) -> {
-                    /*v1.write().format("org.apache.hudi")
-                            .option(KeyGeneratorOptions.RECORDKEY_FIELD_OPT_KEY, "kafka_partition_offset")
-                            .option(KeyGeneratorOptions.PARTITIONPATH_FIELD_OPT_KEY, "partition_date")
-                            .option(HoodieWriteConfig.TABLE_NAME, "copy_on_write_table")
-                            .option(KeyGeneratorOptions.HIVE_STYLE_PARTITIONING_OPT_KEY, true)
-                            .mode(SaveMode.Append)
-                            .save("/tmp/sparkHudi/COPY_ON_WRITE");*/
-                    v1.write().format("com.databricks.spark.csv")
-                            .save("./data/" + v2.toString() + "_mydata.csv");
-                })
-                .start().awaitTermination();
-
-        if (true) {
-            return;
-        }
-
-        //
-        // Create a local StreamingContext with two working thread and batch interval of 1 second
-        SparkConf conf = new SparkConf().setMaster("local[2]").setAppName("NetworkWordCount");
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
-
-
-        Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put("bootstrap.servers", "localhost:9092");
-        kafkaParams.put("key.deserializer", StringDeserializer.class);
-        kafkaParams.put("value.deserializer", StringDeserializer.class);
-        kafkaParams.put("group.id", "use_a_separate_group_id_for_each_stream");
-        kafkaParams.put("auto.offset.reset", "latest");
-        kafkaParams.put("enable.auto.commit", false);
-
-        Collection<String> topics = Arrays.asList("topic_payment_success");
-
-        JavaInputDStream<ConsumerRecord<String, String>> stream =
-                KafkaUtils.createDirectStream(
-                        jssc,
-                        LocationStrategies.PreferConsistent(),
-                        ConsumerStrategies.<String, String>Subscribe(topics, kafkaParams)
-                );
-        JavaPairDStream<String, String> o = stream.mapToPair(record -> new Tuple2<>(record.key(), record.value()));
-        o.foreachRDD((v1, v2) -> {
-            v1.foreach(stringStringTuple2 -> {
-                System.out.println(stringStringTuple2._1 + "-----" + stringStringTuple2._2);
-            });
-            System.out.println("------> " + v2.toString());
+        HoodieDeltaStreamer.main(new String[]{
+                "--table-type", "COPY_ON_WRITE",
+                "--source-class", "org.apache.hudi.utilities.sources.JsonKafkaSource",
+//                "--class", "org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer",
+                "--source-ordering-field", "ts",
+                "--target-base-path", "/Users/harishbohara/workspace/personal/new/kafka_hudi/data1",
+                "--target-table", "stock_ticks_mor",
+                "--props", "/Users/harishbohara/workspace/personal/new/kafka_hudi/kafka-source.properties",
+                // "--schemaprovider-class", "org.apache.hudi.utilities.schema.FilebasedSchemaProvider",
         });
-
-
-        jssc.start();
-        jssc.awaitTermination();
-
     }
+
 }
+
+// spark-submit --packages org.apache.hudi:hudi-utilities-bundle_2.11:0.5.1-incubating,org.apache.spark:spark-avro_2.11:2.4.4 \
+// --master yarn \
+// --deploy-mode cluster \
+// --num-executors 10 \
+// --executor-memory 3g \
+// --driver-memory 6g \
+// --conf spark.driver.extraJavaOptions="-XX:+PrintGCApplicationStoppedTime -XX:+PrintGCApplicationConcurrentTime -XX:+PrintGCTimeStamps -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/varadarb_ds_driver.hprof" \
+// --conf spark.executor.extraJavaOptions="-XX:+PrintGCApplicationStoppedTime -XX:+PrintGCApplicationConcurrentTime -XX:+PrintGCTimeStamps -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/varadarb_ds_executor.hprof" \
+// --queue hadoop-platform-queue \
+// --conf spark.scheduler.mode=FAIR \
+// --conf spark.yarn.executor.memoryOverhead=1072 \
+// --conf spark.yarn.driver.memoryOverhead=2048 \
+// --conf spark.task.cpus=1 \
+// --conf spark.executor.cores=1 \
+// --conf spark.task.maxFailures=10 \
+// --conf spark.memory.fraction=0.4 \
+// --conf spark.rdd.compress=true \
+// --conf spark.kryoserializer.buffer.max=200m \
+// --conf spark.serializer=org.apache.spark.serializer.KryoSerializer \
+// --conf spark.memory.storageFraction=0.1 \
+// --conf spark.shuffle.service.enabled=true \
+// --conf spark.sql.hive.convertMetastoreParquet=false \
+// --conf spark.ui.port=5555 \
+// --conf spark.driver.maxResultSize=3g \
+// --conf spark.executor.heartbeatInterval=120s \
+// --conf spark.network.timeout=600s \
+// --conf spark.eventLog.overwrite=true \
+// --conf spark.eventLog.enabled=true \
+// --conf spark.eventLog.dir=hdfs:///user/spark/applicationHistory \
+// --conf spark.yarn.max.executor.failures=10 \
+// --conf spark.sql.catalogImplementation=hive \
+// --conf spark.sql.shuffle.partitions=100 \
+// --driver-class-path $HADOOP_CONF_DIR \
+// --class org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer \
+// --table-type MERGE_ON_READ \
+// --source-class org.apache.hudi.utilities.sources.JsonKafkaSource \
+// --source-ordering-field ts  \
+// --target-base-path /user/hive/warehouse/stock_ticks_mor \
+// --target-table stock_ticks_mor \
+// --props /var/demo/config/kafka-source.properties \
+// --schemaprovider-class org.apache.hudi.utilities.schema.FilebasedSchemaProvider
